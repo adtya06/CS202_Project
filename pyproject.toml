@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "c-cfg-optimizer"
+version = "0.1.0"
+description = "C code to CFG pipeline with static analysis and optimization passes"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "CS-202 Team" }]
+dependencies = [
+  "pycparser>=2.22",
+  "networkx>=3.3",
+  "pydot>=2.0"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2"]
+
+[project.scripts]
+cfg-opt = "cfg_optimizer.cli:main"
+cfg-bench = "cfg_optimizer.benchmark:main"
+cfg-render = "cfg_optimizer.render:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

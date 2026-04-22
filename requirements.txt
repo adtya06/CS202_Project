@@ -1,0 +1,4 @@
+pycparser>=2.22
+networkx>=3.3
+pydot>=2.0
+pytest>=8.2
