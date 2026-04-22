@@ -1,5 +1,6 @@
 from cfg_optimizer.analysis import analyses_to_report
 from cfg_optimizer.ast_parser import get_function_defs, parse_c_code
+from cfg_optimizer.callgraph import build_call_graph, call_graph_to_report
 from cfg_optimizer.cfg import build_cfg
 from cfg_optimizer.optimizer import apply_all
 
@@ -14,6 +15,18 @@ int compute(int a) {
     } else {
         y = 10;
     }
+    return y;
+}
+"""
+
+
+CALL_CODE = """
+int helper(int x) {
+    return x + 1;
+}
+
+int compute(int a) {
+    int y = helper(a);
     return y;
 }
 """
@@ -41,3 +54,16 @@ def test_optimizations_apply():
 
     assert "constant_folding" in applied
     assert "constant_propagation" in applied
+
+
+def test_whole_program_call_graph():
+    ast_root = parse_c_code(CALL_CODE)
+    cg = build_call_graph(ast_root)
+    report = call_graph_to_report(cg)
+
+    nodes = {n["name"] for n in report["nodes"]}
+    edges = {(e["caller"], e["callee"]) for e in report["edges"]}
+
+    assert "helper" in nodes
+    assert "compute" in nodes
+    assert ("compute", "helper") in edges

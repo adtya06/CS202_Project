@@ -27,6 +27,8 @@ Given an input file `<name>.c`, the CLI writes:
 - `artifacts/<name>.optimized.cfg.dot` - optimized CFG in DOT format
 - `artifacts/<name>.analysis.json` - reaching definitions/live variable data
 - `artifacts/<name>.optimizations.json` - list of applied optimization actions
+- `artifacts/<name>.callgraph.dot` - whole-program call graph (functions and call edges)
+- `artifacts/<name>.callgraph.json` - call graph nodes and caller/callee edges
 
 ## Project Structure
 

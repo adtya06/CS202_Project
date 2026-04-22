@@ -9,9 +9,10 @@ from typing import Dict, List
 
 from cfg_optimizer.analysis import analyses_to_report
 from cfg_optimizer.ast_parser import get_function_defs, iter_c_files, parse_c_file
+from cfg_optimizer.callgraph import build_call_graph, call_graph_to_report
 from cfg_optimizer.cfg import build_cfg
 from cfg_optimizer.optimizer import apply_all
-from cfg_optimizer.visualize import export_cfg_to_dot
+from cfg_optimizer.visualize import export_call_graph_to_dot, export_cfg_to_dot
 
 
 @dataclass
@@ -86,6 +87,12 @@ def run_benchmark(
             ast_root = parse_c_file(c_file)
             parse_time = time.time() - parse_start
             funcs = get_function_defs(ast_root)
+
+            if save_artifacts:
+                call_graph = build_call_graph(ast_root)
+                stem = Path(c_file).stem
+                export_call_graph_to_dot(call_graph, file_artifact_root / f"{stem}.callgraph.dot")
+                _json_write(file_artifact_root / f"{stem}.callgraph.json", call_graph_to_report(call_graph))
 
             file_result = FileResult(
                 path=str(c_file),

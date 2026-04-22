@@ -2,6 +2,7 @@
 
 __all__ = [
     "ast_parser",
+    "callgraph",
     "cfg",
     "analysis",
     "optimizer",

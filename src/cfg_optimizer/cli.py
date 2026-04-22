@@ -6,9 +6,10 @@ from pathlib import Path
 
 from cfg_optimizer.analysis import analyses_to_report
 from cfg_optimizer.ast_parser import get_function_defs, iter_c_files, parse_c_file
+from cfg_optimizer.callgraph import build_call_graph, call_graph_to_report
 from cfg_optimizer.cfg import build_cfg
 from cfg_optimizer.optimizer import apply_all
-from cfg_optimizer.visualize import export_cfg_to_dot
+from cfg_optimizer.visualize import export_call_graph_to_dot, export_cfg_to_dot
 
 
 def _write_json(path: Path, payload: object) -> None:
@@ -49,6 +50,21 @@ def run_pipeline(input_path: str, out_dir: str, function_name: str | None = None
     for c_file in source_paths:
         ast_root = parse_c_file(c_file)
         funcs = get_function_defs(ast_root)
+
+        call_graph = build_call_graph(ast_root)
+        callgraph_dot = output_root / f"{c_file.stem}.callgraph.dot"
+        callgraph_json = output_root / f"{c_file.stem}.callgraph.json"
+        export_call_graph_to_dot(call_graph, callgraph_dot)
+        _write_json(
+            callgraph_json,
+            {
+                "source_file": str(c_file),
+                "call_graph": call_graph_to_report(call_graph),
+            },
+        )
+        print(f"Program call graph for {c_file.name}")
+        print(f"  - {callgraph_dot}")
+        print(f"  - {callgraph_json}")
 
         if function_name:
             funcs = [f for f in funcs if f.decl.name == function_name]
