@@ -145,9 +145,14 @@ def _emit_for_next(cfg: CFG, nxt: c_ast.Node | None, incoming: Sequence[Tuple[st
     return _emit_simple_stmt(cfg, nxt, incoming)
 
 
-def _build_stmt(cfg: CFG, stmt: c_ast.Node, incoming: Sequence[Tuple[str, str | None]]) -> List[Tuple[str, str | None]]:
+def _build_stmt(
+    cfg: CFG,
+    stmt: c_ast.Node,
+    incoming: Sequence[Tuple[str, str | None]],
+    include_unreachable: bool,
+) -> List[Tuple[str, str | None]]:
     if isinstance(stmt, c_ast.Compound):
-        return _build_stmt_list(cfg, _as_stmt_list(stmt), incoming)
+        return _build_stmt_list(cfg, _as_stmt_list(stmt), incoming, include_unreachable)
 
     if isinstance(stmt, c_ast.If):
         cond_text = f"if ({_node_to_text(stmt.cond)})"
@@ -157,8 +162,16 @@ def _build_stmt(cfg: CFG, stmt: c_ast.Node, incoming: Sequence[Tuple[str, str | 
         then_stmts = _as_stmt_list(stmt.iftrue)
         else_stmts = _as_stmt_list(stmt.iffalse)
 
-        then_out = _build_stmt_list(cfg, then_stmts, [(cond_node, "T")]) if then_stmts else [(cond_node, "T")]
-        else_out = _build_stmt_list(cfg, else_stmts, [(cond_node, "F")]) if else_stmts else [(cond_node, "F")]
+        then_out = (
+            _build_stmt_list(cfg, then_stmts, [(cond_node, "T")], include_unreachable)
+            if then_stmts
+            else [(cond_node, "T")]
+        )
+        else_out = (
+            _build_stmt_list(cfg, else_stmts, [(cond_node, "F")], include_unreachable)
+            if else_stmts
+            else [(cond_node, "F")]
+        )
 
         return then_out + else_out
 
@@ -169,7 +182,7 @@ def _build_stmt(cfg: CFG, stmt: c_ast.Node, incoming: Sequence[Tuple[str, str | 
 
         body_stmts = _as_stmt_list(stmt.stmt)
         if body_stmts:
-            body_out = _build_stmt_list(cfg, body_stmts, [(cond_node, "T")])
+            body_out = _build_stmt_list(cfg, body_stmts, [(cond_node, "T")], include_unreachable)
             for src, _ in body_out:
                 cfg.add_edge(src, cond_node)
         else:
@@ -185,7 +198,11 @@ def _build_stmt(cfg: CFG, stmt: c_ast.Node, incoming: Sequence[Tuple[str, str | 
         _connect_incoming(cfg, init_out, cond_node)
 
         body_stmts = _as_stmt_list(stmt.stmt)
-        body_out = _build_stmt_list(cfg, body_stmts, [(cond_node, "T")]) if body_stmts else [(cond_node, "T")]
+        body_out = (
+            _build_stmt_list(cfg, body_stmts, [(cond_node, "T")], include_unreachable)
+            if body_stmts
+            else [(cond_node, "T")]
+        )
         next_out = _emit_for_next(cfg, stmt.next, body_out)
         for src, _ in next_out:
             cfg.add_edge(src, cond_node)
@@ -195,19 +212,38 @@ def _build_stmt(cfg: CFG, stmt: c_ast.Node, incoming: Sequence[Tuple[str, str | 
     return _emit_simple_stmt(cfg, stmt, incoming)
 
 
-def _build_stmt_list(cfg: CFG, stmts: Sequence[c_ast.Node], incoming: Sequence[Tuple[str, str | None]]) -> List[Tuple[str, str | None]]:
+def _emit_unreachable(cfg: CFG, stmt: c_ast.Node) -> None:
+    if isinstance(stmt, c_ast.Compound):
+        for inner in _as_stmt_list(stmt):
+            _emit_unreachable(cfg, inner)
+        return
+
+    text, defs, uses = _analyze_simple_statement(stmt)
+    label = f"unreachable: {text}"
+    cfg.add_node(kind="unreachable", label=label, defs=defs, uses=uses)
+
+
+def _build_stmt_list(
+    cfg: CFG,
+    stmts: Sequence[c_ast.Node],
+    incoming: Sequence[Tuple[str, str | None]],
+    include_unreachable: bool,
+) -> List[Tuple[str, str | None]]:
     out = list(incoming)
     for stmt in stmts:
-        out = _build_stmt(cfg, stmt, out)
         if not out:
+            if include_unreachable:
+                _emit_unreachable(cfg, stmt)
+                continue
             break
+        out = _build_stmt(cfg, stmt, out, include_unreachable)
     return out
 
 
-def build_cfg(func: c_ast.FuncDef) -> CFG:
+def build_cfg(func: c_ast.FuncDef, include_unreachable: bool = False) -> CFG:
     cfg = CFG(function_name=func.decl.name)
     body_stmts = _as_stmt_list(func.body)
-    out = _build_stmt_list(cfg, body_stmts, [(cfg.entry, None)])
+    out = _build_stmt_list(cfg, body_stmts, [(cfg.entry, None)], include_unreachable)
     for src, branch in out:
         cfg.add_edge(src, cfg.exit, branch)
     if not body_stmts:

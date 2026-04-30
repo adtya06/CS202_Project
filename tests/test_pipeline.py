@@ -67,3 +67,67 @@ def test_whole_program_call_graph():
     assert "helper" in nodes
     assert "compute" in nodes
     assert ("compute", "helper") in edges
+
+
+def test_unreachable_statements_are_in_unoptimized_cfg():
+    code = """
+    int f() {
+        return 1;
+        int after = 2;
+    }
+    """
+    ast_root = parse_c_code(code)
+    cfg = build_cfg(get_function_defs(ast_root)[0], include_unreachable=True)
+    labels = [attrs.get("label", "") for _, attrs in cfg.graph.nodes(data=True)]
+    assert any("unreachable" in label and "after" in label for label in labels)
+
+
+def test_common_subexpression_elimination_reuses_value():
+    code = """
+    int f(int a, int b) {
+        int x = a + b;
+        int y = a + b;
+        return x + y;
+    }
+    """
+    ast_root = parse_c_code(code)
+    cfg = build_cfg(get_function_defs(ast_root)[0])
+    _ = apply_all(cfg)
+
+    labels = [attrs.get("label", "") for _, attrs in cfg.graph.nodes(data=True)]
+    assert any("y = x;" in label for label in labels)
+
+
+def test_strength_reduction_rewrites_power_of_two_mul():
+    code = """
+    int f(int x) {
+        int y = x * 8;
+        int z = 4 * x;
+        return y + z;
+    }
+    """
+    ast_root = parse_c_code(code)
+    cfg = build_cfg(get_function_defs(ast_root)[0])
+    _ = apply_all(cfg)
+
+    labels = [attrs.get("label", "") for _, attrs in cfg.graph.nodes(data=True)]
+    assert any("x << 3" in label for label in labels)
+    assert any("x << 2" in label for label in labels)
+
+
+def test_loop_unrolling_repeats_body_for_small_trip_count():
+    code = """
+    int f() {
+        int sum = 0;
+        for (int i = 0; i < 3; i = i + 1) {
+            sum = sum + 1;
+        }
+        return sum;
+    }
+    """
+    ast_root = parse_c_code(code)
+    cfg = build_cfg(get_function_defs(ast_root)[0])
+    _ = apply_all(cfg)
+
+    labels = [attrs.get("label", "").strip() for _, attrs in cfg.graph.nodes(data=True)]
+    assert labels.count("sum = sum + 1;") == 3

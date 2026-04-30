@@ -13,6 +13,12 @@ python -m pip install -r requirements.txt
 python -m cfg_optimizer.cli examples/input/sample.c --out-dir artifacts
 ```
 
+One-shot sample run (CFG + callgraph + PNGs):
+
+```bash
+python run_sample.py
+```
+
 Or install as a package and use the script entrypoint:
 
 ```bash
@@ -61,7 +67,7 @@ python -m cfg_optimizer.benchmark --dataset svbench --input datasets/sv-benchmar
 
 ## Batch Render DOT to PNG
 
-Render all generated `.dot` files to `.png` in one command:
+By default, the CLI renders PNGs from DOT outputs. You can still render manually:
 
 ```bash
 python -m cfg_optimizer.render --input-dir artifacts/benchmarks --recursive
@@ -71,4 +77,10 @@ If `dot` is not on PATH, pass the executable explicitly:
 
 ```bash
 python -m cfg_optimizer.render --input-dir artifacts/benchmarks --recursive --dot-exe "C:/Program Files/Graphviz/bin/dot.exe"
+```
+
+To skip rendering in the CLI (DOT + JSON only):
+
+```bash
+python -m cfg_optimizer.cli examples/input/sample.c --out-dir artifacts --no-render
 ```

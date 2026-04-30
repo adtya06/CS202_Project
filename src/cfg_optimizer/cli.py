@@ -9,6 +9,7 @@ from cfg_optimizer.ast_parser import get_function_defs, iter_c_files, parse_c_fi
 from cfg_optimizer.callgraph import build_call_graph, call_graph_to_report
 from cfg_optimizer.cfg import build_cfg
 from cfg_optimizer.optimizer import apply_all
+from cfg_optimizer.render import render_all_dot_to_png
 from cfg_optimizer.visualize import export_call_graph_to_dot, export_cfg_to_dot
 
 
@@ -17,7 +18,14 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def run_pipeline(input_path: str, out_dir: str, function_name: str | None = None, optimize: bool = True) -> int:
+def run_pipeline(
+    input_path: str,
+    out_dir: str,
+    function_name: str | None = None,
+    optimize: bool = True,
+    render_pngs: bool = True,
+    dot_exe: str | None = None,
+) -> int:
     source_paths = list(iter_c_files(input_path))
     if not source_paths:
         target = Path(input_path)
@@ -70,7 +78,7 @@ def run_pipeline(input_path: str, out_dir: str, function_name: str | None = None
             funcs = [f for f in funcs if f.decl.name == function_name]
 
         for func in funcs:
-            cfg = build_cfg(func)
+            cfg = build_cfg(func, include_unreachable=True)
             name_prefix = f"{c_file.stem}.{func.decl.name}"
 
             original_dot = output_root / f"{name_prefix}.cfg.dot"
@@ -110,6 +118,19 @@ def run_pipeline(input_path: str, out_dir: str, function_name: str | None = None
         print("No matching functions were processed.")
         return 1
 
+    if render_pngs:
+        try:
+            rendered, skipped = render_all_dot_to_png(
+                str(output_root),
+                recursive=False,
+                overwrite=True,
+                dot_exe=dot_exe,
+            )
+            print(f"Rendered {rendered} PNG files. Skipped {skipped} files.")
+        except FileNotFoundError as exc:
+            print(str(exc))
+            return 1
+
     return 0
 
 
@@ -119,6 +140,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-dir", default="artifacts", help="Output directory for DOT and JSON artifacts")
     parser.add_argument("--function", default=None, help="Optional function name filter")
     parser.add_argument("--no-opt", action="store_true", help="Disable optimization passes")
+    parser.add_argument("--no-render", action="store_true", help="Do not render PNGs from DOT outputs")
+    parser.add_argument("--dot-exe", default=None, help="Optional full path to dot executable")
     return parser
 
 
@@ -131,6 +154,8 @@ def main() -> None:
         out_dir=args.out_dir,
         function_name=args.function,
         optimize=not args.no_opt,
+        render_pngs=not args.no_render,
+        dot_exe=args.dot_exe,
     )
     raise SystemExit(exit_code)
 
