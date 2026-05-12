@@ -1,0 +1,8 @@
+strict digraph {
+foo [label=foo, shape=ellipse, style=filled, fillcolor=lightblue];
+printf [label=printf, shape=ellipse, style=filled, fillcolor=lightblue];
+master_optimizer_test [label="master_optimizer_test", shape=ellipse, style=filled, fillcolor=lightblue];
+foo -> printf [label=calls];
+master_optimizer_test -> printf [label=calls];
+master_optimizer_test -> foo [label=calls];
+}

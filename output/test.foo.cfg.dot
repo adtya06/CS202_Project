@@ -1,0 +1,7 @@
+strict digraph {
+start [label="start\nStart", shape=box];
+end [label="end\nEnd", shape=box];
+n1 [label="n1\nprintf(\"Hellow\");\ndefs=[]\nuses=['printf']", shape=box];
+start -> n1;
+n1 -> end;
+}
